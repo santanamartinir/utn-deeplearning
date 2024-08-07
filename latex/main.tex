@@ -1,0 +1,75 @@
+\documentclass[10pt,a4paper,twocolumn]{article}
+\usepackage[
+backend=biber,
+style=ieee,
+]{biblatex}
+\usepackage{tabularx}
+\addbibresource{bibliography.bib}
+
+% Change the names
+\author{
+Heller, Luca\\
+\and
+Navaratnarajah, Suman\\
+\and
+Santana Martin, Irene
+}
+\begin{document}
+\title{
+    Generative Hyperparameter Optimization\\
+    \large Group Assignment
+}
+\maketitle
+\abstract{Hyperparameter Optimization (HPO) is crucial for maximizing the performance of machine learning models. Traditional approaches like Bayesian optimization have shown effectiveness in exploring the hyperparameter space using black-box evaluations. However, these methods often struggle with high-dimensional and complex search spaces. In this report, we propose a novel black-box optimization technique for HPO using Denoising Diffusion Probabilistic Models (DDPM), following the instructions stated by Prof. Dr. Josif Grabocka \cite{grabocka2024diffusers}. Our approach ... (What does our approach do?). (What sections do we have? What will we explain/show in each section?).)
+\section{Introduction}
+Hyperparameter Optimization (HPO) is an essential process in machine learning that involves finding the optimal set of hyperparameters for a given model to achieve the best possible performance. This task is inherently challenging due to the vast and often complex hyperparameter spaces. Traditional methods such as grid search and random search are computationally expensive and inefficient. Bayesian optimization has emerged as a popular alternative, leveraging probabilistic models to make informed decisions about which hyperparameters to evaluate next. Despite its success, Bayesian optimization faces limitations when dealing with high-dimensional spaces and complex model architectures.
+
+Recent advances in generative modeling, particularly Denoising Diffusion Probabilistic Models (DDPM), have shown promise in various domains such as image generation and natural language processing. These models learn to iteratively denoise a noisy input, gradually refining it into a coherent and high-quality output. Inspired by these advancements, we propose a novel approach to HPO that utilizes diffusion models to navigate the hyperparameter space effectively.
+
+In this report, we detail our methodology for implementing a black-box optimization technique for HPO using diffusion models. ... (What does our approach do? What will the next section show in detail?)
+\section{Method} 
+We propose a novel approach to HPO using Diffusion Models. This method involves three main components: sampling a supervised dataset from historical configurations, fitting a denoising diffusion generative model, and performing generative HPO search through inference with diffusion models.
+
+To create a dataset suitable for training a diffusion model, we derive triples \((x, C, I)\) from historical data \(H\). Each triple consists of:
+\begin{itemize}
+  \item \(x\): A hyperparameter configuration.
+  \item \(C\): Context, a set of previously evaluated configurations.
+  \item \(I\): An indicator variable that shows whether the performance of \(x\) is higher than all evaluations in \(C\).
+\end{itemize}
+
+The training objective for our diffusion model is to minimize the error between the expected noise and the predicted noise over \(T\) timesteps. This process involves several key components:
+\begin{itemize}
+  \item \textbf{Sampler}: Randomly obtains subsets and query points from the historical data.
+  \item \textbf{Noise Adder}: Adds noise to the hyperparameter configurations according to a noise schedule.
+  \item \textbf{Network}: A Transformer model processes the noisy configurations and context embeddings.
+  \item \textbf{Loss}: The loss function computes and minimizes the difference between the actual and predicted noise.
+\end{itemize}
+
+The trained diffusion model is used to recommend new hyperparameter configurations iteratively.
+\begin{itemize}
+  \item \textbf{Inference Process}: Using the trained DDPM to iteratively refine noisy hyperparameter configurations.
+  \item \textbf{Components}:
+  \begin{itemize}
+    \item \textbf{Network}: Generates noise predictions for new configurations.
+    \item \textbf{Denoiser}: Iteratively refines configurations by removing the predicted noise.
+  \end{itemize}
+\end{itemize}
+(Am I missing something?)
+\section{Evaluation}
+... (Evaluation using the HPO-B benchmark) (Explain setting)
+\section{Conclusion}
+...
+\section{Questions}
+5.1. What is the mathematical formulation for the Noise Adder given the inputs in Figure 1 \cite{grabocka2024diffusers}?\\
+\(x_t = \sqrt{\alpha_t x} + \sqrt{1-\alpha_t}\epsilon\) (\cite{bishop2024deeplearning}, (20.8))
+\\\\5.2. What is the mathematical formulation for the Denoiser given the inputs in Figure 2 \cite{grabocka2024diffusers}?\\
+\(x_{t-1} = \frac{1}{\sqrt{\alpha_t}} (x_t - \frac{1-\alpha_t}{\sqrt{1-\alpha_t}}\epsilon_t)\) (\cite{bishop2024deeplearning}, (20.35))
+\\\\5.3. Do we need a transformer architecture with positional encoding? Why?\\
+Yes, a transformer architecture with positional encoding is necessary. Transformers don't naturally understand the order of the input data. Positional encodings add information about the position of each element, helping the model grasp the sequence's order and relationships. (\cite{bishop2024deeplearning}, chapter 12.1.9)
+\\\\5.4. Does the loss function decrease during training? Include a plot.\\
+...
+\\\\5.5. What modification would you do to make the system more efficient?\\
+...
+\medskip
+\printbibliography
+\end{document}
