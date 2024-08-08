@@ -8,6 +8,7 @@ from transformers import AutoModel, AutoTokenizer
 # Configuración del dispositivo (GPU si está disponible, de lo contrario CPU)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+
 class Sampler:
     def __init__(self, H):
         self.H = H  # Historia de evaluaciones (lista de pares (configuración, rendimiento))
@@ -36,7 +37,8 @@ class NoiseAdder:
         # Calculate the noisy configuration using NoiseAdder formula
         x_noisy = torch.sqrt(1 - beta_t) * x + torch.sqrt(beta_t) * noise
         return x_noisy, noise
-    
+
+
 class Network(nn.Module):
     def __init__(self, input_dim, context_dim, hidden_dim):
         super(Network, self).__init__()
@@ -70,6 +72,7 @@ class Network(nn.Module):
         h = torch.relu(self.fc1(x_cat))
         noise_pred = self.fc2(h)
         return noise_pred
+
 
 class Trainer:
     def __init__(self, model, noise_adder, sampler, lr=0.001):
@@ -105,6 +108,7 @@ class Trainer:
             if epoch % 10 == 0:
                 print(f"Epoch {epoch}, Loss: {loss:.4f}")
 
+
 class Inference:
     def __init__(self, model, noise_adder):
         self.model = model.to(device)  # Mover el modelo al dispositivo
@@ -128,87 +132,71 @@ class Inference:
         x_recommend = self.denoise(x_init, I, C)
         return x_recommend.cpu().numpy()
 
-# Suponiendo un historial de configuraciones
-H = [(np.random.rand(10), np.random.rand()) for _ in range(100)]
+if __name__ == "__main__":
+    # Suponiendo un historial de configuraciones
+    H = [(np.random.rand(10), np.random.rand()) for _ in range(100)]
 
-# Instanciación de componentes
-sampler = Sampler(H)
-noise_adder = NoiseAdder()
-model = Network(input_dim=10, context_dim=768, hidden_dim=256)
-trainer = Trainer(model, noise_adder, sampler, lr=0.001)
+    # Instanciación de componentes
+    sampler = Sampler(H)
+    noise_adder = NoiseAdder()
+    model = Network(input_dim=10, context_dim=768, hidden_dim=256)
+    trainer = Trainer(model, noise_adder, sampler, lr=0.001)
 
-# Entrenamiento
-trainer.train(epochs=100)
+    # Entrenamiento
+    trainer.train(epochs=100)
 
-# Inferencia
-inference = Inference(model, noise_adder)
-C = torch.tensor([h[0] for h in H], dtype=torch.float32).to(device)
-x_recommend = inference.recommend(C)
-print("Recommended Configuration:", x_recommend)
+    # Inferencia
+    inference = Inference(model, noise_adder)
+    C = torch.tensor([h[0] for h in H], dtype=torch.float32).to(device)
+    x_recommend = inference.recommend(C)
+    print("Recommended Configuration:", x_recommend)
 
 
-class MyAlgorithm:
-    def __init__(self, H):
-        self.sampler = Sampler(H)
-        self.noise_adder = NoiseAdder()
-        self.model = Network(input_dim=10, context_dim=768, hidden_dim=256)
-        self.trainer = Trainer(self.model, self.noise_adder, self.sampler, lr=0.001)
-        self.inference = Inference(self.model, self.noise_adder)
-    
-    def observe_and_suggest(self, X_obs, y_obs, X_pen=None):
-        if X_pen is not None:
-            # Aquí podrías usar un proceso simple como random search para discrete space
-            size_pending_eval = len(X_pen)
-            idx = random.randint(0, size_pending_eval-1)
-            return idx
-        else:
-            # Para continuous space, usa el modelo para sugerir la próxima configuración
-            C = torch.tensor(X_obs, dtype=torch.float32).to(device)
-            x_recommend = self.inference.recommend(C)
-            return x_recommend
 
-import sys
-import os
-import matplotlib.pyplot as plt
+    from methods import MyAlgorithm
+    import sys
+    import os
+    import matplotlib.pyplot as plt
 
-# Agregar el directorio HPO-B al sys.path
-sys.path.append(os.path.join(os.path.dirname(__file__), 'HPO-B'))
-from hpob_handler import HPOBHandler
+    # Agregar el directorio HPO-B al sys.path
+    sys.path.append(os.path.join(os.path.dirname(__file__), 'HPO-B'))
+    from hpob_handler import HPOBHandler
 
-# Load the dataset and the handler
-hpob_hdlr = HPOBHandler(root_dir="hpob-data/", mode="v3-test", surrogates_dir="saved-surrogates/")
 
-# Get search space IDs and dataset IDs
-search_space_id = "5971"
-dataset_ids = ["10093", "3954", "43", "34536", "9970", "6566"]
-seeds = ["test0", "test1", "test2", "test3", "test4"]
+    # Load the dataset and the handler
+    hpob_hdlr = HPOBHandler(root_dir="hpob-data/", mode="v3-test", surrogates_dir="saved-surrogates/")
 
-# Crear instancia de tu algoritmo
-H = [(np.random.rand(10), np.random.rand()) for _ in range(100)]  # Historial ficticio
-my_algo = MyAlgorithm(H)
+    # Get search space IDs and dataset IDs
+    search_space_id = "5971"
+    dataset_ids = ["10093", "3954", "43", "34536", "9970", "6566"]
+    seeds = ["test0", "test1", "test2", "test3", "test4"]
 
-# Evaluar tu algoritmo
-results = []
-for dataset_id in dataset_ids:
-    for seed in seeds:
-        acc = hpob_hdlr.evaluate_continuous(
-            my_algo,
-            search_space_id=search_space_id,
-            dataset_id=dataset_id,
-            seed=seed,
-            n_trials=50
-        )
-        results.append(acc)
+    # Crear instancia de tu algoritmo
+    H = [(np.random.rand(10), np.random.rand()) for _ in range(100)]  # Historial ficticio
+    my_algo = MyAlgorithm(H)
 
-# Calcular media y desviación estándar de la métrica de rendimiento
-mean_acc = np.mean(results, axis=0)
-std_acc = np.std(results, axis=0)
+    # Evaluar tu algoritmo
+    results = []
+    for dataset_id in dataset_ids:
+        for seed in seeds:
+            acc = hpob_hdlr.evaluate_continuous(
+                my_algo,
+                search_space_id=search_space_id,
+                dataset_id=dataset_id,
+                seed=seed,
+                n_trials=50
+            )
+            results.append(acc)
 
-# Graficar los resultados
-plt.figure(figsize=(12, 6))
-plt.errorbar(range(len(mean_acc)), mean_acc, yerr=std_acc, fmt='-o', label='Mean Performance')
-plt.xlabel('Trials')
-plt.ylabel('Performance')
-plt.title('HPO-B Evaluation Results')
-plt.legend()
-plt.show()
+    # Calcular media y desviación estándar de la métrica de rendimiento
+    mean_acc = np.mean(results, axis=0)
+    std_acc = np.std(results, axis=0)
+
+    # Graficar los resultados
+    plt.figure(figsize=(12, 6))
+    plt.errorbar(range(len(mean_acc)), mean_acc, yerr=std_acc, fmt='-o', label='Mean Performance')
+    plt.xlabel('Trials')
+    plt.ylabel('Performance')
+    plt.title('HPO-B Evaluation Results')
+    plt.legend()
+    plt.show()
