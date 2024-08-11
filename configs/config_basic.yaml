@@ -1,0 +1,8 @@
+meta_dataset_version: "v3-test"
+search_spaces: ["5971"]
+dataset_ids: ["10093", "3954", "43", "34536", "9970", "6566"]
+seeds: ["test0", "test1", "test2", "test3", "test4"]
+n_trials: 50
+data_path: "HPO-B/hpob-data/"
+results_path: "results/"
+output_path: "plots/"
