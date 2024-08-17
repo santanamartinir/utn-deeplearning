@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 import random
+
+import yaml
 from transformers import AutoModel, AutoTokenizer
 
 # Configuración del dispositivo (GPU si está disponible, de lo contrario CPU)
@@ -10,9 +12,9 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class Sampler:
-    def __init__(self, H):
+    def __init__(self, H, configs: dict):
         self.H = H  # Historia de evaluaciones (lista de pares (configuración, rendimiento))
-
+        self.configs = configs
     def sample(self):
         # Selecciona una configuración aleatoria y su rendimiento
         (x, y) = random.choice(self.H)
@@ -21,13 +23,15 @@ class Sampler:
         # Determina si x es mejor que todas las configuraciones en C
         I = 1 if all(y > y_c for (_, y_c) in C) else 0
         # Selecciona un paso de tiempo aleatorio
-        t = random.randint(0, 1000)  # Suponiendo T=1000 pasos de tiempo
+        t = random.randint(0, self.configs['training']['diffusion']['timesteps'])  # Suponiendo T=1000 pasos de tiempo
         return x, I, C, t
 
 class NoiseAdder:
-    def __init__(self, beta_start=0.0001, beta_end=0.02, T=1000):
+    def __init__(self, configs):
         # Initialise beta values linearly between beta_start and beta_end
-        self.betas = torch.linspace(beta_start, beta_end, T)
+        self.betas = torch.linspace(configs['training']['diffusion']['beta_start'],
+                                    configs['training']['diffusion']['beta_end'],
+                                    configs['training']['diffusion']['timesteps'])
 
     def add_noise(self, x, t):
         # Gets the beta corresponding to the time step t
@@ -75,21 +79,22 @@ class Network(nn.Module):
 
 
 class Trainer:
-    def __init__(self, model, noise_adder, sampler, lr=0.001):
-        self.model = model.to(device)  # Mover el modelo al dispositivo
+    def __init__(self, model, noise_adder, sampler, configs):
+        self.device = configs['training']['device']
+        self.model = model.to(self.device)  # Mover el modelo al dispositivo
         self.noise_adder = noise_adder
         self.sampler = sampler
-        self.optimizer = optim.Adam(self.model.parameters(), lr=lr)
+        self.optimizer = optim.Adam(self.model.parameters(), lr=configs['training']['lr'])
         self.loss_fn = nn.MSELoss()  # Función de pérdida: error cuadrático medio
 
     def train_step(self):
         self.model.train()
         # Obtener una muestra del sampler
         x, I, C, t = self.sampler.sample()
-        x = torch.tensor(x, dtype=torch.float32).to(device)
-        I = torch.tensor([I], dtype=torch.float32).to(device)
+        x = torch.tensor(x, dtype=torch.float32).to(self.device)
+        I = torch.tensor([I], dtype=torch.float32).to(self.device)
         # Example adjustment if C should be indices
-        C = torch.tensor(np.array([c[0] for c in C]), dtype=torch.long).to(device)
+        C = torch.tensor(np.array([c[0] for c in C]), dtype=torch.long).to(self.device)
         # Añadir ruido a la configuración
         x_noisy, noise = self.noise_adder.add_noise(x, t)
         # Predecir el ruido usando el modelo
@@ -133,14 +138,20 @@ class Inference:
         return x_recommend.cpu().numpy()
 
 if __name__ == "__main__":
+    # load the configurations
+    config_file = "../configs/config_basic.yaml"
+    with open(config_file, 'r') as file:
+        configs = yaml.safe_load(file)
+
     # Suponiendo un historial de configuraciones
-    H = [(np.random.rand(10), np.random.rand()) for _ in range(100)]
+
+    H = [[list(np.random.rand(16)), [np.random.rand()]] for _ in range(100)]
 
     # Instanciación de componentes
-    sampler = Sampler(H)
-    noise_adder = NoiseAdder()
+    sampler = Sampler(H, configs)
+    noise_adder = NoiseAdder(configs)
     model = Network(input_dim=10, context_dim=768, hidden_dim=256)
-    trainer = Trainer(model, noise_adder, sampler, lr=0.001)
+    trainer = Trainer(model, noise_adder, sampler, configs)
 
     # Entrenamiento
     trainer.train(epochs=100)

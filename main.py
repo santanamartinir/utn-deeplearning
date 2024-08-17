@@ -20,10 +20,10 @@ if __name__ == "__main__":
     # plot the results from HPO-B
     benchmark_plotter = benchmark_plot.BenchmarkPlotter(experiments=experiments,
                                                         name=name,
-                                                        n_trials=config['n_trials'],
-                                                        results_path=config['results_path'],
-                                                        output_path=config['output_path'],
-                                                        data_path=config['data_path'])
-    benchmark_plotter.search_spaces = config['search_spaces']
+                                                        n_trials=config['general']['n_trials'],
+                                                        results_path=config['general']['results_path'],
+                                                        output_path=config['general']['output_path'],
+                                                        data_path=config['general']['data_path'])
+    benchmark_plotter.search_spaces = config['general']['search_spaces']
     benchmark_plotter.plot()
     print("Finished")
