@@ -21,6 +21,21 @@ def generate_results(config, methods, new_method_name):
     for method in methods:
         benchmark_plotter.generate_results(method, n_trials=50,
                                            new_method_name=new_method_name,
+                                           search_spaces=config['search_spaces'],
+                                           seeds=config['seeds'])
+
+def extract_history(hpob_handler,
+                    rootdir,
+                    search_space: int,
+                    dataset_id: int):
+    hpob_handler.load_data(rootdir=rootdir)
+    full_data = hpob_handler.meta_test_data
+    assert search_space in full_data.keys(), f"the search space id {search_space} not found!"
+    data = full_data[search_space][dataset_id]
+    data_len = len(data['X'])
+    print(f"There are {len(data['X'])} evaluations for the dataset {dataset_id} of search space {search_space}...")
+    history = [(data['X'][i], data['y'][i]) for i in range(data_len)]
+    return history
                                            search_spaces=["5971"],
                                            seeds=["test0", "test1", "test2", "test3", "test4"])
 
