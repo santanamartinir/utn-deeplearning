@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 import random
-
+import json
 import yaml
 from transformers import AutoModel, AutoTokenizer
 
@@ -78,14 +78,35 @@ class Network(nn.Module):
         return noise_pred
 
 
+class TrainLogger:
+    def __init__(self, log_file):
+        self.log_file = log_file
+        self.history = []
+
+    def log(self, hyperparameters, performance):
+        # Log hyperparameters and performance
+        self.history.append((hyperparameters, performance))
+        self.save()
+
+    def save(self):
+        with open(self.log_file, 'w') as f:
+            json.dump(self.history, f)
+
+    def load(self):
+        if os.path.exists(self.log_file):
+            with open(self.log_file, 'r') as f:
+                self.history = json.load(f)
+        return [(tuple(h), p) for h, p in self.history]
+
 class Trainer:
-    def __init__(self, model, noise_adder, sampler, configs):
+    def __init__(self, model, noise_adder, sampler, configs, logger):
         self.device = configs['training']['device']
         self.model = model.to(self.device)  # Mover el modelo al dispositivo
         self.noise_adder = noise_adder
         self.sampler = sampler
         self.optimizer = optim.Adam(self.model.parameters(), lr=configs['training']['lr'])
-        self.loss_fn = nn.MSELoss()  # Función de pérdida: error cuadrático medio
+        self.loss_fn = nn.MSELoss() # TODO: eval. metric?
+        self.logger = logger
 
     def train_step(self):
         self.model.train()
@@ -105,6 +126,12 @@ class Trainer:
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
+
+        # Log hyperparameters and loss
+        hyperparameters = {"x": x.tolist(), "I": I.item(), "t": t}
+        performance = loss.item()
+        self.logger.log(hyperparameters, performance)
+
         return loss.item()
 
     def train(self, epochs):
@@ -143,9 +170,14 @@ if __name__ == "__main__":
     with open(config_file, 'r') as file:
         configs = yaml.safe_load(file)
 
-    # Suponiendo un historial de configuraciones
+    log_file = "training_history_data.json"
+    logger = TrainLogger(log_file)
 
-    H = [[list(np.random.rand(16)), [np.random.rand()]] for _ in range(100)]
+    H = logger.load()
+
+    # TODO: init history ?!
+    if not H:
+        H = [[list(np.random.rand(16)), np.random.rand()] for _ in range(100)]
 
     # Instanciación de componentes
     sampler = Sampler(H, configs)
@@ -162,7 +194,8 @@ if __name__ == "__main__":
     x_recommend = inference.recommend(C)
     print("Recommended Configuration:", x_recommend)
 
-
+    # TODO: save after training?
+    logger.save()
 
     from methods import MyAlgorithm
     import sys
