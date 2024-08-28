@@ -10,7 +10,7 @@ class MyAlgorithm:
     def __init__(self, H):
         self.sampler = Sampler(H)
         self.noise_adder = NoiseAdder()
-        self.model = Network(input_dim=10, context_dim=768, hidden_dim=256)
+        self.model = Network(h_len=len(H), context_dim=512)
         self.trainer = Trainer(self.model, self.noise_adder, self.sampler, lr=0.001)
         self.inference = Inference(self.model, self.noise_adder)
 
@@ -22,7 +22,17 @@ class MyAlgorithm:
             return idx
         else:
             # Para continuous space, usa el modelo para sugerir la próxima configuración
+            # to make the dimension to 17
+            X_obs_copy = X_obs.copy()
+            X_obs_list = []
+            for x in X_obs_copy:
+                x_list = list(x)
+                x_list.append(1)
+                X_obs_list.append(x_list)
+            X_obs = np.array(X_obs_list)
             C = torch.tensor(X_obs, dtype=torch.float32).to(device)
+            C = torch.reshape(C, (1, C.shape[0], C.shape[1]))
+
             x_recommend = self.inference.recommend(C)
             return x_recommend
 
