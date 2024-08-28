@@ -2,27 +2,10 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
-import random
 from transformers import AutoModel, AutoTokenizer
-
+from irene.data_utils import Sampler
 # Configuración del dispositivo (GPU si está disponible, de lo contrario CPU)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-
-class Sampler:
-    def __init__(self, H):
-        self.H = H  # Historia de evaluaciones (lista de pares (configuración, rendimiento))
-
-    def sample(self):
-        # Selecciona una configuración aleatoria y su rendimiento
-        (x, y) = random.choice(self.H)
-        # Selecciona un subconjunto aleatorio de la historia de evaluaciones
-        C = random.sample(self.H, random.randint(1, len(self.H)))
-        # Determina si x es mejor que todas las configuraciones en C
-        I = 1 if all(y > y_c for (_, y_c) in C) else 0
-        # Selecciona un paso de tiempo aleatorio
-        t = random.randint(0, 1000)  # Suponiendo T=1000 pasos de tiempo
-        return x, I, C, t
 
 class NoiseAdder:
     def __init__(self, beta_start=0.0001, beta_end=0.02, T=1000):
@@ -40,38 +23,28 @@ class NoiseAdder:
 
 
 class Network(nn.Module):
-    def __init__(self, input_dim, context_dim, hidden_dim):
+    def __init__(self, h_len, context_dim):
         super(Network, self).__init__()
+        #h_len is the length of history
+        self.h_len = h_len
         # Cargar un modelo transformer preentrenado
-        self.transformer = AutoModel.from_pretrained("bert-base-uncased")
-        # Capa totalmente conectada para combinar la configuración ruidosa y el contexto
-        self.fc1 = nn.Linear(input_dim + context_dim, hidden_dim)
-        # Capa de salida para predecir el ruido
-        self.fc2 = nn.Linear(hidden_dim, input_dim)
+        encoder_layer = nn.TransformerEncoderLayer(d_model=17, nhead=1)
+        self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=6)
+        # # Capa totalmente conectada para combinar la configuración ruidosa y el contexto
+        self.fc1 = nn.Linear(h_len * 17, context_dim)
+        # # Capa de salida para predecir el ruido
+        self.fc2 = nn.Linear(context_dim, 17)
 
-    def forward(self, x_noisy, I, C):
-        # Obtener embeddings del transformer
-        context_embeddings = self.transformer(input_ids=C, attention_mask=None)[0]
-        context_embedding = context_embeddings.mean(dim=1)  # Media sobre la dimensión de la secuencia
-        
-        # Ajustar x_noisy a las dimensiones correctas
-        if x_noisy.dim() == 1:
-            x_noisy = x_noisy.unsqueeze(0).repeat(context_embedding.size(0), 1)
-        
-        # Comprobar las formas de los tensores
-        print("x_noisy shape:", x_noisy.shape)
-        print("context_embedding shape:", context_embedding.shape)
-        
-        # Asegúrate de que x_noisy y context_embedding tengan las dimensiones correctas
-        if x_noisy.shape[0] != context_embedding.shape[0]:
-            raise ValueError("Batch sizes do not match for x_noisy and context_embedding")
-
-        # Concatenar la configuración ruidosa y la incrustación del contexto
-        x_cat = torch.cat((x_noisy, context_embedding), dim=1)
-        # Pasar por las capas totalmente conectadas
-        h = torch.relu(self.fc1(x_cat))
-        noise_pred = self.fc2(h)
-        return noise_pred
+    def forward(self, C):
+        # padding to get same length
+        pad_tensor = torch.zeros(size=(C.shape[0], self.h_len - C.shape[1], C.shape[2])).to(device)
+        mask = torch.ones(self.h_len, C.shape[0]).to(device)
+        mask[C.shape[1]:] = 0
+        C = torch.cat((C, pad_tensor), dim=1)
+        context_embeddings1 = self.transformer(C, src_key_padding_mask=mask)
+        context_embeddings2 = torch.relu(self.fc1(context_embeddings1.flatten()))
+        noise_pred = self.fc2(context_embeddings2)
+        return noise_pred[:16]
 
 
 class Trainer:
@@ -86,14 +59,13 @@ class Trainer:
         self.model.train()
         # Obtener una muestra del sampler
         x, I, C, t = self.sampler.sample()
+        C = torch.reshape(C, (1, C.shape[0], C.shape[1])).to(device)
         x = torch.tensor(x, dtype=torch.float32).to(device)
         I = torch.tensor([I], dtype=torch.float32).to(device)
-        # Example adjustment if C should be indices
-        C = torch.tensor(np.array([c[0] for c in C]), dtype=torch.long).to(device)
         # Añadir ruido a la configuración
         x_noisy, noise = self.noise_adder.add_noise(x, t)
         # Predecir el ruido usando el modelo
-        noise_pred = self.model(x_noisy, I, C)
+        noise_pred = self.model(C)
         # Calcular la pérdida
         loss = self.loss_fn(noise, noise_pred)
         # Actualizar los pesos del modelo
@@ -117,29 +89,31 @@ class Inference:
     def denoise(self, x_noisy, I, C):
         self.model.eval()
         with torch.no_grad():
-            for t in reversed(range(1000)):  # Suponiendo 1000 pasos de denoising
+            for t in reversed(range(10)):  # Suponiendo 1000 pasos de denoising
                 # Predecir el ruido en cada paso
-                noise_pred = self.model(x_noisy, I, C)
+                noise_pred = self.model(C)
                 # Actualizar la configuración ruidosa eliminando el ruido predicho
-                x_noisy = self.noise_adder.add_noise(x_noisy, t)[0] - noise_pred
+                x_noisy = x_noisy - noise_pred
         return x_noisy
 
     def recommend(self, C):
         # Inicializar una configuración aleatoria
-        x_init = torch.randn((1, C.shape[1])).to(device)
+        x_init = torch.randn((1, C.shape[2] - 1)).to(device)
+        x_init = torch.reshape(x_init, (1, x_init.shape[0], x_init.shape[1])).to(device)
         I = torch.tensor([1], dtype=torch.float32).to(device)
         # Generar una nueva configuración recomendada a partir del modelo
         x_recommend = self.denoise(x_init, I, C)
         return x_recommend.cpu().numpy()
 
+
 if __name__ == "__main__":
     # Suponiendo un historial de configuraciones
-    H = [(np.random.rand(10), np.random.rand()) for _ in range(100)]
-
+    H = [(np.random.rand(16).tolist(), [np.random.rand()]) for _ in range(1)]
     # Instanciación de componentes
     sampler = Sampler(H)
+    print(sampler.sample())
     noise_adder = NoiseAdder()
-    model = Network(input_dim=10, context_dim=768, hidden_dim=256)
+    model = Network()
     trainer = Trainer(model, noise_adder, sampler, lr=0.001)
 
     # Entrenamiento
