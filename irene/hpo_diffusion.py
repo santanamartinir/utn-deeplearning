@@ -2,15 +2,20 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
+import random
+
+import yaml
 from transformers import AutoModel, AutoTokenizer
 from irene.data_utils import Sampler
 # Configuración del dispositivo (GPU si está disponible, de lo contrario CPU)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class NoiseAdder:
-    def __init__(self, beta_start=0.0001, beta_end=0.02, T=1000):
+    def __init__(self, configs):
         # Initialise beta values linearly between beta_start and beta_end
-        self.betas = torch.linspace(beta_start, beta_end, T)
+        self.betas = torch.linspace(configs['training']['diffusion']['beta_start'],
+                                    configs['training']['diffusion']['beta_end'],
+                                    configs['training']['diffusion']['timesteps'])
 
     def add_noise(self, x, t):
         # Gets the beta corresponding to the time step t
@@ -48,11 +53,12 @@ class Network(nn.Module):
 
 
 class Trainer:
-    def __init__(self, model, noise_adder, sampler, lr=0.001):
-        self.model = model.to(device)  # Mover el modelo al dispositivo
+    def __init__(self, model, noise_adder, sampler):
+        self.device = configs['training']['device']
+        self.model = model.to(self.device)  # Mover el modelo al dispositivo
         self.noise_adder = noise_adder
         self.sampler = sampler
-        self.optimizer = optim.Adam(self.model.parameters(), lr=lr)
+        self.optimizer = optim.Adam(self.model.parameters(), lr=configs['training']['lr'])
         self.loss_fn = nn.MSELoss()  # Función de pérdida: error cuadrático medio
 
     def train_step(self):
@@ -62,6 +68,7 @@ class Trainer:
         C = torch.reshape(C, (1, C.shape[0], C.shape[1])).to(device)
         x = torch.tensor(x, dtype=torch.float32).to(device)
         I = torch.tensor([I], dtype=torch.float32).to(device)
+
         # Añadir ruido a la configuración
         x_noisy, noise = self.noise_adder.add_noise(x, t)
         # Predecir el ruido usando el modelo
@@ -107,6 +114,11 @@ class Inference:
 
 
 if __name__ == "__main__":
+    # load the configurations
+    config_file = "../configs/config_basic.yaml"
+    with open(config_file, 'r') as file:
+        configs = yaml.safe_load(file)
+
     # Suponiendo un historial de configuraciones
     H = [(np.random.rand(16).tolist(), [np.random.rand()]) for _ in range(1)]
     # Instanciación de componentes
