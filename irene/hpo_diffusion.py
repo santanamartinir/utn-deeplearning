@@ -105,7 +105,7 @@ class Trainer:
         self.noise_adder = noise_adder
         self.sampler = sampler
         self.optimizer = optim.Adam(self.model.parameters(), lr=configs['training']['lr'])
-        self.loss_fn = nn.MSELoss() # TODO: eval. metric?
+        self.loss_fn = nn.MSELoss() # loss function like in Eq. 2
         self.logger = logger
 
     def train_step(self):
@@ -175,9 +175,11 @@ if __name__ == "__main__":
 
     H = logger.load()
 
-    # TODO: init history ?!
-    if not H:
-        H = [[list(np.random.rand(16)), np.random.rand()] for _ in range(100)]
+    # TODO: init history:
+    # initialize H by generating k (hyperparameters, performance) as initial H: how to choose k?
+    # but not from surrogate? actually random?
+    # if not H:
+    #    H = [[list(np.random.rand(16)), np.random.rand()] for _ in range(100)]
 
     # Instanciación de componentes
     sampler = Sampler(H, configs)
