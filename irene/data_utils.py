@@ -19,10 +19,10 @@ def generate_results(config, methods, new_method_name):
     benchmark_plotter.search_spaces = ["5971"]
     # generate results from the algorithm
     for method in methods:
-        benchmark_plotter.generate_results(method, n_trials=50,
+        benchmark_plotter.generate_results(method, n_trials=config['general']['n_trials'],
                                            new_method_name=new_method_name,
-                                           search_spaces=config['search_spaces'],
-                                           seeds=config['seeds'])
+                                           search_spaces=config['general']['search_spaces'],
+                                           seeds=config['general']['seeds'])
 
 def extract_history(hpob_handler,
                     rootdir,

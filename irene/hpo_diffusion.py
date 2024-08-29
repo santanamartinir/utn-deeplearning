@@ -50,7 +50,7 @@ class Network(nn.Module):
         C_t_vector = context_embeddings2 + t_vector
         I_vector = torch.tensor([(I/100)] * self.context_dim, device=device)
         C_T_I_vector = C_t_vector + I_vector
-        noise_pred = torch.relu(self.fc2(C_T_I_vector + x_noisy))
+        noise_pred = torch.nn.functional.tanh(self.fc2(C_T_I_vector + x_noisy))
         return noise_pred
 
 
