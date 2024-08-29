@@ -61,3 +61,9 @@ surrogates_dir="HPO-B/saved-surrogates/"
 2. to generate the results for our Continuous MyAlgorithm, the following changes are required
 HPO-B/benchmark_plot.py:225
 evaluate_continuous instead of evaluate
+
+3. for visualising the loss in tensorboard
+
+```shell
+tensorboard --logdir=runs
+```

@@ -6,6 +6,8 @@ from transformers import AutoModel, AutoTokenizer
 from irene.data_utils import Sampler
 # Configuración del dispositivo (GPU si está disponible, de lo contrario CPU)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+from torch.utils.tensorboard import SummaryWriter
+writer = SummaryWriter()
 
 class NoiseAdder:
     def __init__(self, beta_start=0.0001, beta_end=0.02, T=1000):
@@ -27,15 +29,16 @@ class Network(nn.Module):
         super(Network, self).__init__()
         #h_len is the length of history
         self.h_len = h_len
+        self.context_dim = context_dim
         # Cargar un modelo transformer preentrenado
         encoder_layer = nn.TransformerEncoderLayer(d_model=17, nhead=1)
         self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=6)
         # # Capa totalmente conectada para combinar la configuración ruidosa y el contexto
         self.fc1 = nn.Linear(h_len * 17, context_dim)
         # # Capa de salida para predecir el ruido
-        self.fc2 = nn.Linear(context_dim, 17)
+        self.fc2 = nn.Linear(context_dim, 16)
 
-    def forward(self, C):
+    def forward(self, x_noisy, C, I, t):
         # padding to get same length
         pad_tensor = torch.zeros(size=(C.shape[0], self.h_len - C.shape[1], C.shape[2])).to(device)
         mask = torch.ones(self.h_len, C.shape[0]).to(device)
@@ -43,8 +46,12 @@ class Network(nn.Module):
         C = torch.cat((C, pad_tensor), dim=1)
         context_embeddings1 = self.transformer(C, src_key_padding_mask=mask)
         context_embeddings2 = torch.relu(self.fc1(context_embeddings1.flatten()))
-        noise_pred = self.fc2(context_embeddings2)
-        return noise_pred[:16]
+        t_vector = torch.tensor([(t/1000)] * self.context_dim, device=device)
+        C_t_vector = context_embeddings2 + t_vector
+        I_vector = torch.tensor([(I/100)] * self.context_dim, device=device)
+        C_T_I_vector = C_t_vector + I_vector
+        noise_pred = torch.relu(self.fc2(C_T_I_vector + x_noisy))
+        return noise_pred
 
 
 class Trainer:
@@ -65,7 +72,7 @@ class Trainer:
         # Añadir ruido a la configuración
         x_noisy, noise = self.noise_adder.add_noise(x, t)
         # Predecir el ruido usando el modelo
-        noise_pred = self.model(C)
+        noise_pred = self.model(x_noisy, C, I, t)
         # Calcular la pérdida
         loss = self.loss_fn(noise, noise_pred)
         # Actualizar los pesos del modelo
@@ -77,8 +84,10 @@ class Trainer:
     def train(self, epochs):
         for epoch in range(epochs):
             loss = self.train_step()
+            writer.add_scalar('Loss/train', loss, epoch)
             if epoch % 10 == 0:
                 print(f"Epoch {epoch}, Loss: {loss:.4f}")
+
 
 
 class Inference:
@@ -89,9 +98,9 @@ class Inference:
     def denoise(self, x_noisy, I, C):
         self.model.eval()
         with torch.no_grad():
-            for t in reversed(range(10)):  # Suponiendo 1000 pasos de denoising
+            for t in reversed(range(1)):  # Suponiendo 1000 pasos de denoising
                 # Predecir el ruido en cada paso
-                noise_pred = self.model(C)
+                noise_pred = self.model(x_noisy, C, I, t)
                 # Actualizar la configuración ruidosa eliminando el ruido predicho
                 x_noisy = x_noisy - noise_pred
         return x_noisy

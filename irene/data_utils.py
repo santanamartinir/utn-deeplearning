@@ -26,8 +26,8 @@ def generate_results(config, methods, new_method_name):
 
 def extract_history(hpob_handler,
                     rootdir,
-                    search_space: int,
-                    dataset_id: int):
+                    search_space: str,
+                    dataset_id: str):
     hpob_handler.load_data(rootdir=rootdir)
     full_data = hpob_handler.meta_test_data
     assert search_space in full_data.keys(), f"the search space id {search_space} not found!"
@@ -36,8 +36,7 @@ def extract_history(hpob_handler,
     print(f"There are {len(data['X'])} evaluations for the dataset {dataset_id} of search space {search_space}...")
     history = [(data['X'][i], data['y'][i]) for i in range(data_len)]
     return history
-                                           search_spaces=["5971"],
-                                           seeds=["test0", "test1", "test2", "test3", "test4"])
+
 
 class Sampler:
     def __init__(self, H):
