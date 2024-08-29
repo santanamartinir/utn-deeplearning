@@ -53,3 +53,11 @@ Being able to run the following and generate plots validates the initial setup c
 ```python
    python main.py
 ```
+
+# Notes for training
+1. update the surrogate path in HPO-B/hpob_handler.py:17 to:
+surrogates_dir="HPO-B/saved-surrogates/"
+
+2. to generate the results for our Continuous MyAlgorithm, the following changes are required
+HPO-B/benchmark_plot.py:225
+evaluate_continuous instead of evaluate
