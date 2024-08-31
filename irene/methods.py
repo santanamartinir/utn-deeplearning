@@ -10,7 +10,7 @@ class MyAlgorithm:
     def __init__(self, H):
         self.sampler = Sampler(H)
         self.noise_adder = NoiseAdder()
-        self.model = Network(h_len=len(H), context_dim=512)
+        self.model = Network(h_len=len(H), context_dim=16)
         self.trainer = Trainer(self.model, self.noise_adder, self.sampler, lr=0.001)
         self.inference = Inference(self.model, self.noise_adder)
 

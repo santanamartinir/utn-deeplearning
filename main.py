@@ -1,7 +1,7 @@
 import sys
 
 from irene.data_utils import Sampler
-
+import warnings
 sys.path.insert(0, "HPO-B/")
 import importlib
 import yaml
@@ -10,7 +10,12 @@ from irene.hpo_diffusion import Network, NoiseAdder, Trainer
 import numpy as np
 from irene.methods import RandomSearch, MyAlgorithm
 from irene.data_utils import generate_results
+from irene.data_utils import extract_history
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), 'HPO-B'))
+from hpob_handler import HPOBHandler
 
+warnings.filterwarnings("ignore")
 
 if __name__ == "__main__":
     # load the configurations
@@ -18,19 +23,23 @@ if __name__ == "__main__":
     with open(config_file, 'r') as file:
         config = yaml.safe_load(file)
     # step 0 - dataset generation
-    """@Luca, you can replace the below random dataset with your functions"""
-    H = [(np.random.rand(16).tolist(), [np.random.rand()]) for _ in range(100)]
+    hpob_handler = HPOBHandler(root_dir="HPO-B/hpob-data/", mode="v3-test")
+    # @LUCA, please check this history extractor, you can also replace with your own function
+    H = []
+    for dataset_id in ["10093", "3954", "43", "34536", "9970", "6566"]:
+        h = extract_history(hpob_handler, "HPO-B/hpob-data/", '5971', dataset_id)
+        H.extend(h)
     # Train the network
     sampler = Sampler(H)
     noise_adder = NoiseAdder()
-    model = Network(h_len=len(H), context_dim=512)
+    model = Network(h_len=len(H), context_dim=16)
     trainer = Trainer(model, noise_adder, sampler, lr=0.001)
 
     # Entrenamiento
     trainer.train(epochs=100)
     # step 2 - plot generation
     name = "benchmark_plot"
-    experiments = ["RandomSearch", "MyAlgorithm"]
+    experiments = ["RandomSearch", "MyAlgorithm", "GP", "DGP"]
     methods = [MyAlgorithm(H), RandomSearch()]
     new_method_name = 'MyAlgorithm.json'
     # generate the results of the algorithms inside methods in a way we can plot using HPO-B
