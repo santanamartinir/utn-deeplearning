@@ -75,8 +75,8 @@ Here is an evaluation of our method in a continuous setting and a comparison wit
 
 \begin{figure}[h]
 \includegraphics[width=0.5\textwidth]{img/average_metrics.png}
-\caption{In the first upper plot, we see the "Average Rank", represented by the y-axis, against the "Number of Trials", represented by the x-axis. In the second lower plot, we see the "Average Regret", represented by the y-axis, against the "Number of Trials", represented by the x-axis.}
-\label{fig:plot}
+\caption{Our Plot: In the first upper plot, we see the "Average Rank", represented by the y-axis, against the "Number of Trials", represented by the x-axis. In the second lower plot, we see the "Average Regret", represented by the y-axis, against the "Number of Trials", represented by the x-axis.}
+\label{fig:ourplot}
 \end{figure}
 
 \subsection{Approach and Challenges}
@@ -88,10 +88,10 @@ First, we ran into the famous problem of function-to-function dimension problems
 
 Next was our lack of knowledge about the HPO benchmark, as it was the first time we worked with it. We used many hours to familiarise ourselves with it and to find out what requirements or dependencies we were missing to make everything work as expected. The README of the HPO benchmark was key, as well as several trial-and-error attempts on our own.
 
-Finally, we had difficulty generating the plots. Because the training took so long, making small changes was more tedious than it should have been.
+Finally, we had difficulty generating the plots. Because the training took so long, making small changes was more tedious than it should have been. Several times we encountered the problem that the program would suddenly stop, or at other times it would claim ‘FileNotFound’. These errors were beyond our control.
 
 \section{Conclusion}
-Still, we finally got results. Unfortunately, they were not what we had hoped for, but we are very proud of ourselves because we put a lot of effort and effort into finishing it as well as we could. We learned a lot from this experience.
+We got some results. Unfortunately, they were not what we had hoped for, as shown above \ref{fig:ourplot}, since it deviates a lot from what it is shown in the example from the provided guide. Lack of experience with this kind of algorithm and the HPO benchmark itself may be factors that slowed us down along the way and made us not reach our goal. Despite this, we learned a lot from this experience and are very proud of ourselves because we put a lot of effort into finishing it.
 
 \section{Questions}
 5.1. What is the mathematical formulation for the Noise Adder given the inputs in Figure 1 \cite{grabocka2024diffusers}?\\
