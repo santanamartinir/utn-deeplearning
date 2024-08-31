@@ -24,7 +24,7 @@ if __name__ == "__main__":
         config = yaml.safe_load(file)
     # step 0 - dataset generation
     hpob_handler = HPOBHandler(root_dir="HPO-B/hpob-data/", mode="v3-test")
-    # @LUCA, please check this history extractor, you can also replace with your own function
+    # history extraction
     H = []
     for dataset_id in ["10093", "3954", "43", "34536", "9970", "6566"]:
         h = extract_history(hpob_handler, "HPO-B/hpob-data/", '5971', dataset_id)
