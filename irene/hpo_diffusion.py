@@ -4,9 +4,9 @@ import torch.optim as optim
 import numpy as np
 from transformers import AutoModel, AutoTokenizer
 from irene.data_utils import Sampler
-# Configuración del dispositivo (GPU si está disponible, de lo contrario CPU)
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 from torch.utils.tensorboard import SummaryWriter
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 writer = SummaryWriter()
 
 class NoiseAdder:
@@ -27,19 +27,19 @@ class NoiseAdder:
 class Network(nn.Module):
     def __init__(self, h_len, context_dim):
         super(Network, self).__init__()
-        #h_len is the length of history
+        # h_len is the length of history
         self.h_len = h_len
         self.context_dim = context_dim
-        # Cargar un modelo transformer preentrenado
+        # Loading a pre-trained transformer model
         encoder_layer = nn.TransformerEncoderLayer(d_model=17, nhead=1)
         self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=6)
-        # # Capa totalmente conectada para combinar la configuración ruidosa y el contexto
+        # Fully connected layer to combine noisy configuration and context
         self.fc1 = nn.Linear(h_len * 17, context_dim)
-        # # Capa de salida para predecir el ruido
+        # Output layer to predict noise
         self.fc2 = nn.Linear(context_dim, 16)
 
     def forward(self, x_noisy, C, I, t):
-        # padding to get same length
+        # Padding to get same length
         pad_tensor = torch.zeros(size=(C.shape[0], self.h_len - C.shape[1], C.shape[2])).to(device)
         mask = torch.ones(self.h_len, C.shape[0]).to(device)
         mask[C.shape[1]:] = 0
@@ -56,26 +56,28 @@ class Network(nn.Module):
 
 class Trainer:
     def __init__(self, model, noise_adder, sampler, lr=0.001):
-        self.model = model.to(device)  # Mover el modelo al dispositivo
+        # Move the model to the device
+        self.model = model.to(device)
         self.noise_adder = noise_adder
         self.sampler = sampler
         self.optimizer = optim.Adam(self.model.parameters(), lr=lr)
-        self.loss_fn = nn.MSELoss()  # Función de pérdida: error cuadrático medio
+        # Loss function: mean square error
+        self.loss_fn = nn.MSELoss()
 
     def train_step(self):
         self.model.train()
-        # Obtener una muestra del sampler
+        # Obtain a sample from the sampler
         x, I, C, t = self.sampler.sample()
         C = torch.reshape(C, (1, C.shape[0], C.shape[1])).to(device)
         x = torch.tensor(x, dtype=torch.float32).to(device)
         I = torch.tensor([I], dtype=torch.float32).to(device)
-        # Añadir ruido a la configuración
+        # Add noise
         x_noisy, noise = self.noise_adder.add_noise(x, t)
-        # Predecir el ruido usando el modelo
+        # Predict noise using model
         noise_pred = self.model(x_noisy, C, I, t)
-        # Calcular la pérdida
+        # Calculate loss
         loss = self.loss_fn(noise, noise_pred)
-        # Actualizar los pesos del modelo
+        # Update weights
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
@@ -92,48 +94,47 @@ class Trainer:
 
 class Inference:
     def __init__(self, model, noise_adder):
-        self.model = model.to(device)  # Mover el modelo al dispositivo
+        self.model = model.to(device)
         self.noise_adder = noise_adder
 
     def denoise(self, x_noisy, I, C):
         self.model.eval()
         with torch.no_grad():
-            for t in reversed(range(1)):  # Suponiendo 1000 pasos de denoising
-                # Predecir el ruido en cada paso
+            for t in reversed(range(1)):  # Assuming 1000 steps of denoising
+                # Predict noise in each step
                 noise_pred = self.model(x_noisy, C, I, t)
-                # Actualizar la configuración ruidosa eliminando el ruido predicho
+                # Update noisy configuration by removing predicted noise
                 x_noisy = x_noisy - noise_pred
         return x_noisy
 
     def recommend(self, C):
-        # Inicializar una configuración aleatoria
+        # Initialising a random configuration
         x_init = torch.randn((1, C.shape[2] - 1)).to(device)
         x_init = torch.reshape(x_init, (1, x_init.shape[0], x_init.shape[1])).to(device)
         I = torch.tensor([1], dtype=torch.float32).to(device)
-        # Generar una nueva configuración recomendada a partir del modelo
+        # Generate a new recommended configuration from the model
         x_recommend = self.denoise(x_init, I, C)
         return x_recommend.cpu().numpy()
 
 
 if __name__ == "__main__":
-    # Suponiendo un historial de configuraciones
+    # Assuming a history of configurations
     H = [(np.random.rand(16).tolist(), [np.random.rand()]) for _ in range(1)]
-    # Instanciación de componentes
+    # Installation of components
     sampler = Sampler(H)
     print(sampler.sample())
     noise_adder = NoiseAdder()
     model = Network()
     trainer = Trainer(model, noise_adder, sampler, lr=0.001)
 
-    # Entrenamiento
+    # Training
     trainer.train(epochs=100)
 
-    # Inferencia
+    # Inference
     inference = Inference(model, noise_adder)
     C = torch.tensor([h[0] for h in H], dtype=torch.float32).to(device)
     x_recommend = inference.recommend(C)
     print("Recommended Configuration:", x_recommend)
-
 
 
     from methods import MyAlgorithm
@@ -141,7 +142,6 @@ if __name__ == "__main__":
     import os
     import matplotlib.pyplot as plt
 
-    # Agregar el directorio HPO-B al sys.path
     sys.path.append(os.path.join(os.path.dirname(__file__), 'HPO-B'))
     from hpob_handler import HPOBHandler
 
@@ -154,11 +154,11 @@ if __name__ == "__main__":
     dataset_ids = ["10093", "3954", "43", "34536", "9970", "6566"]
     seeds = ["test0", "test1", "test2", "test3", "test4"]
 
-    # Crear instancia de tu algoritmo
+    # Create instance
     H = [(np.random.rand(10), np.random.rand()) for _ in range(100)]  # Historial ficticio
     my_algo = MyAlgorithm(H)
 
-    # Evaluar tu algoritmo
+    # Evaluate algorithm
     results = []
     for dataset_id in dataset_ids:
         for seed in seeds:
@@ -171,11 +171,11 @@ if __name__ == "__main__":
             )
             results.append(acc)
 
-    # Calcular media y desviación estándar de la métrica de rendimiento
+    # Calculate media and deviation
     mean_acc = np.mean(results, axis=0)
     std_acc = np.std(results, axis=0)
 
-    # Graficar los resultados
+    # Plot
     plt.figure(figsize=(12, 6))
     plt.errorbar(range(len(mean_acc)), mean_acc, yerr=std_acc, fmt='-o', label='Mean Performance')
     plt.xlabel('Trials')

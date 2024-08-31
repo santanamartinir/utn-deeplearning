@@ -4,9 +4,12 @@ import random
 import torch
 import yaml
 
-sys.path.insert(0, "HPO-B/")
-benchmark_plot = importlib.import_module('HPO-B.benchmark_plot')
+# sys.path.insert(0, "HPO-B/")
+# benchmark_plot = importlib.import_module('HPO-B.benchmark_plot')
 
+absolute_path_to_hpo_b = 'C:/Users/irene/Documents/UTN/DeepLearning/utn-deeplearning/irene/HPO-B'
+sys.path.insert(0, absolute_path_to_hpo_b)
+benchmark_plot = importlib.import_module('benchmark_plot')
 
 def generate_results(config, methods, new_method_name):
 
@@ -15,7 +18,7 @@ def generate_results(config, methods, new_method_name):
                                                         n_trials=50,
                                                         results_path="results/",
                                                         output_path="plots/",
-                                                        data_path="HPO-B/hpob-data/")
+                                                        data_path="irene/HPO-B/hpob-data/")
     benchmark_plotter.search_spaces = ["5971"]
     # generate results from the algorithm
     for method in methods:
