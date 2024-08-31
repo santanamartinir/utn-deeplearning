@@ -34,7 +34,7 @@ class MyAlgorithm:
 
             x_recommend = self.inference.recommend(C)
             return x_recommend
-
+'''
 class RandomSearch:
     """Derived from HPO-B/methods/random_search.py for sake of testing"""
     def __init__(self):
@@ -54,3 +54,4 @@ class RandomSearch:
             x_new = np.array([random.uniform(lower, upper) for upper, lower in bounds]).reshape(-1, dim)
 
             return x_new
+'''
